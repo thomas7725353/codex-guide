@@ -5,6 +5,7 @@ repo="thomas7725353/codex-guide"
 mirror="https://guide.gorustai.com"
 install_dir="${HOME}/.local/bin"
 bin_path="${install_dir}/codex-guide"
+skill_url="${mirror}/skills/codex-gorustai-bootstrap/SKILL.md"
 
 echo "Codex Guide macOS 一键安装器"
 echo "============================"
@@ -56,6 +57,28 @@ PY
 echo "下载 ${asset}"
 curl -fL "${download_url}" -o "${bin_path}" || curl -fL "$(fallback_url)" -o "${bin_path}"
 chmod +x "${bin_path}"
+
+install_skill() {
+  local codex_home="${CODEX_HOME:-${HOME}/.codex}"
+  local paths=(
+    "${HOME}/.agents/skills/codex-gorustai-bootstrap/SKILL.md"
+    "${codex_home}/skills/codex-gorustai-bootstrap/SKILL.md"
+  )
+  local tmp
+  tmp="$(mktemp)"
+  if curl -fsSL "${skill_url}" -o "${tmp}"; then
+    for path in "${paths[@]}"; do
+      mkdir -p "$(dirname "${path}")"
+      cp -f "${tmp}" "${path}"
+    done
+    echo "已下载 Codex 兜底 skill。"
+  else
+    echo "兜底 skill 下载失败，稍后由 codex-guide 内置 skill 写入。"
+  fi
+  rm -f "${tmp}"
+}
+
+install_skill
 
 case ":${PATH}:" in
   *":${install_dir}:"*) ;;

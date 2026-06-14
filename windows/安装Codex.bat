@@ -15,6 +15,15 @@ if not exist "codex-guide.exe" (
   exit /b 1
 )
 
+if exist "codex-gorustai-bootstrap\SKILL.md" (
+  mkdir "%USERPROFILE%\.agents\skills\codex-gorustai-bootstrap" >nul 2>nul
+  mkdir "%USERPROFILE%\.codex\skills\codex-gorustai-bootstrap" >nul 2>nul
+  copy /y "codex-gorustai-bootstrap\SKILL.md" "%USERPROFILE%\.agents\skills\codex-gorustai-bootstrap\SKILL.md" >nul
+  copy /y "codex-gorustai-bootstrap\SKILL.md" "%USERPROFILE%\.codex\skills\codex-gorustai-bootstrap\SKILL.md" >nul
+  echo 已安装 Codex 兜底 skill。
+  echo.
+)
+
 codex-guide.exe setup
 
 echo.

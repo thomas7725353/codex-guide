@@ -6,8 +6,10 @@ const GITHUB_RAW_BASE = `https://raw.githubusercontent.com/${UPSTREAM_REPO}/main
 const GITHUB_RELEASE_LATEST = `https://github.com/${UPSTREAM_REPO}/releases/latest/download`;
 const CODEX_APP_WINDOWS =
   "https://get.microsoft.com/installer/download/9PLM9XGG6VKS?cid=website_cta_psi";
-const CODEX_INSTALL_PS1 = "https://chatgpt.com/codex/install.ps1";
-const CODEX_INSTALL_SH = "https://chatgpt.com/codex/install.sh";
+const CODEX_INSTALL_PS1 = "https://github.com/openai/codex/releases/latest/download/install.ps1";
+const CODEX_INSTALL_SH = "https://github.com/openai/codex/releases/latest/download/install.sh";
+const OPENAI_CODEX_API = "https://api.github.com/repos/openai/codex/releases";
+const OPENAI_CODEX_DOWNLOAD = "https://github.com/openai/codex/releases/download";
 const CC_SWITCH_INSTALL_SH =
   "https://github.com/SaladDay/cc-switch-cli/releases/latest/download/install.sh";
 const CC_SWITCH_WINDOWS_ZIP =
@@ -62,9 +64,14 @@ export default {
       case "/codex/windows-app":
         return Response.redirect(CODEX_APP_WINDOWS, 302);
       case "/codex/install.ps1":
-        return proxyText(CODEX_INSTALL_PS1, "text/plain; charset=utf-8");
+        return proxyCodexInstaller(CODEX_INSTALL_PS1, "text/plain; charset=utf-8", url.origin);
       case "/codex/install.sh":
-        return proxyText(CODEX_INSTALL_SH, "text/plain; charset=utf-8");
+        return proxyCodexInstaller(CODEX_INSTALL_SH, "text/plain; charset=utf-8", url.origin);
+      case "/skills/codex-gorustai-bootstrap/SKILL.md":
+        return proxyText(
+          `${GITHUB_RAW_BASE}/skills/codex-gorustai-bootstrap/SKILL.md`,
+          "text/markdown; charset=utf-8",
+        );
       case "/cc-switch/windows-x64.zip":
         return proxyBinary(CC_SWITCH_WINDOWS_ZIP);
       case "/cc-switch/install.sh":
@@ -76,6 +83,16 @@ export default {
           domain: "guide.gorustai.com",
         });
       default:
+        if (url.pathname === "/codex/api/releases/latest") {
+          return proxyCodexReleaseApi(`${OPENAI_CODEX_API}/latest`, url.origin);
+        }
+        if (url.pathname.startsWith("/codex/api/releases/tags/")) {
+          const tag = url.pathname.slice("/codex/api/releases/tags/".length);
+          return proxyCodexReleaseTag(tag, url.origin);
+        }
+        if (url.pathname.startsWith("/codex/releases/download/")) {
+          return proxyCodexReleaseAsset(url.pathname);
+        }
         if (url.pathname.startsWith("/release/")) {
           return releaseAsset(url.pathname.slice("/release/".length));
         }
@@ -105,6 +122,127 @@ async function proxyText(target, contentType) {
     "content-type": contentType,
     "cache-control": "no-store",
   });
+}
+
+async function proxyCodexInstaller(target, contentType, origin) {
+  const response = await fetch(target, {
+    headers: {
+      "user-agent": "codex-guide-worker/0.1",
+      accept: "text/plain,*/*",
+    },
+    cf: {
+      cacheTtl: 0,
+    },
+  });
+  if (!response.ok) {
+    return passThrough(response, {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "no-store",
+    });
+  }
+  let text = await response.text();
+  text = text
+    .replaceAll(
+      "https://api.github.com/repos/openai/codex/releases/latest",
+      `${origin}/codex/api/releases/latest`,
+    )
+    .replaceAll(
+      "https://api.github.com/repos/openai/codex/releases/tags/rust-v%s",
+      `${origin}/codex/api/releases/tags/rust-v%s`,
+    )
+    .replaceAll(
+      "https://api.github.com/repos/openai/codex/releases/tags/rust-v$ResolvedVersion",
+      `${origin}/codex/api/releases/tags/rust-v$ResolvedVersion`,
+    )
+    .replaceAll(
+      "https://github.com/openai/codex/releases/download/rust-v%s/%s",
+      `${origin}/codex/releases/download/rust-v%s/%s`,
+    );
+  return new Response(text, {
+    headers: {
+      ...SECURITY_HEADERS,
+      "content-type": contentType,
+      "cache-control": "no-store",
+      "access-control-allow-origin": "*",
+    },
+  });
+}
+
+async function proxyCodexReleaseApi(target, origin) {
+  const response = await fetch(target, {
+    headers: {
+      "user-agent": "codex-guide-worker/0.1",
+      accept: "application/vnd.github+json",
+    },
+    cf: {
+      cacheEverything: true,
+      cacheTtl: 300,
+    },
+  });
+  if (!response.ok) {
+    return passThrough(response, {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    });
+  }
+  const data = await response.json();
+  if (Array.isArray(data.assets)) {
+    data.assets = data.assets.map((asset) => ({
+      ...asset,
+      browser_download_url: rewriteCodexDownloadUrl(asset.browser_download_url, origin),
+    }));
+  }
+  return new Response(JSON.stringify(data, null, 2), {
+    headers: {
+      ...SECURITY_HEADERS,
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "public, max-age=300",
+      "access-control-allow-origin": "*",
+    },
+  });
+}
+
+function proxyCodexReleaseTag(tag, origin) {
+  if (!isCodexReleaseTag(tag)) {
+    return new Response("Forbidden", { status: 403, headers: SECURITY_HEADERS });
+  }
+  return proxyCodexReleaseApi(`${OPENAI_CODEX_API}/tags/${tag}`, origin);
+}
+
+function proxyCodexReleaseAsset(pathname) {
+  const rest = pathname.slice("/codex/releases/download/".length);
+  const slash = rest.indexOf("/");
+  if (slash <= 0) {
+    return new Response("Not Found", { status: 404, headers: SECURITY_HEADERS });
+  }
+  const tag = rest.slice(0, slash);
+  const asset = rest.slice(slash + 1);
+  if (!isCodexReleaseTag(tag) || !isAllowedCodexAsset(asset)) {
+    return new Response("Forbidden", { status: 403, headers: SECURITY_HEADERS });
+  }
+  return proxyBinary(`${OPENAI_CODEX_DOWNLOAD}/${tag}/${asset}`);
+}
+
+function rewriteCodexDownloadUrl(value, origin) {
+  if (typeof value !== "string") {
+    return value;
+  }
+  return value.replace(
+    "https://github.com/openai/codex/releases/download/",
+    `${origin}/codex/releases/download/`,
+  );
+}
+
+function isCodexReleaseTag(tag) {
+  return /^rust-v\d+\.\d+\.\d+(?:-(?:alpha|beta)(?:\.\d+)?)?$/.test(tag);
+}
+
+function isAllowedCodexAsset(asset) {
+  return (
+    asset === "codex-package_SHA256SUMS" ||
+    /^codex-package-(?:aarch64|x86_64)-(?:apple-darwin|pc-windows-msvc|unknown-linux-musl)\.tar\.gz$/.test(asset) ||
+    /^codex-npm-(?:darwin-(?:arm64|x64)|linux-(?:arm64|x64)|win32-(?:arm64|x64))-[0-9A-Za-z.+-]+\.tgz$/.test(asset)
+  );
 }
 
 async function proxyBinary(target) {
@@ -146,7 +284,7 @@ function htmlResponse(body) {
     headers: {
       ...SECURITY_HEADERS,
       "content-type": "text/html; charset=utf-8",
-      "cache-control": "public, max-age=120",
+      "cache-control": "no-store",
     },
   });
 }
@@ -321,6 +459,7 @@ cc-switch --app codex</pre>
           <li>macOS x64 CLI：<a href="${origin}/download/macos-x64-cli">${origin}/download/macos-x64-cli</a></li>
           <li>Codex CLI Windows：<a href="${origin}/codex/install.ps1">${origin}/codex/install.ps1</a></li>
           <li>Codex CLI macOS/Linux：<a href="${origin}/codex/install.sh">${origin}/codex/install.sh</a></li>
+          <li>Codex 兜底 skill：<a href="${origin}/skills/codex-gorustai-bootstrap/SKILL.md">${origin}/skills/codex-gorustai-bootstrap/SKILL.md</a></li>
           <li>cc-switch Windows：<a href="${origin}/cc-switch/windows-x64.zip">${origin}/cc-switch/windows-x64.zip</a></li>
         </ul>
       </section>

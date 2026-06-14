@@ -14,9 +14,11 @@ use zip::ZipArchive;
 const REPO: &str = "thomas7725353/codex-guide";
 const CC_SWITCH_REPO: &str = "SaladDay/cc-switch-cli";
 const CODEX_WINDOWS_INSTALL_MIRROR: &str = "https://guide.gorustai.com/codex/install.ps1";
-const CODEX_WINDOWS_INSTALL_OFFICIAL: &str = "https://chatgpt.com/codex/install.ps1";
+const CODEX_WINDOWS_INSTALL_OFFICIAL: &str =
+    "https://github.com/openai/codex/releases/latest/download/install.ps1";
 const CODEX_UNIX_INSTALL_MIRROR: &str = "https://guide.gorustai.com/codex/install.sh";
-const CODEX_UNIX_INSTALL_OFFICIAL: &str = "https://chatgpt.com/codex/install.sh";
+const CODEX_UNIX_INSTALL_OFFICIAL: &str =
+    "https://github.com/openai/codex/releases/latest/download/install.sh";
 const CODEX_APP_WINDOWS: &str =
     "https://get.microsoft.com/installer/download/9PLM9XGG6VKS?cid=website_cta_psi";
 const CC_SWITCH_WINDOWS_MIRROR: &str = "https://guide.gorustai.com/cc-switch/windows-x64.zip";
@@ -25,10 +27,7 @@ const CC_SWITCH_UNIX_INSTALL_OFFICIAL: &str =
     "https://github.com/SaladDay/cc-switch-cli/releases/latest/download/install.sh";
 const DEFAULT_MODEL: &str = "gpt-5.5";
 const DEFAULT_BASE_URL: &str = "https://gorustai.com";
-const FALLBACK_SKILL_B64: &str = match option_env!("CODEX_GUIDE_FALLBACK_SKILL_B64") {
-    Some(value) => value,
-    None => "",
-};
+const FALLBACK_SKILL: &str = include_str!("../skills/codex-gorustai-bootstrap/SKILL.md");
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -221,6 +220,61 @@ fn command_exists(cmd: &str) -> bool {
         .unwrap_or(false)
 }
 
+fn refresh_codex_cli_path(platform: Platform) {
+    if let Some(dir) = env::var_os("CODEX_INSTALL_DIR").filter(|value| !value.is_empty()) {
+        prepend_to_process_path(&PathBuf::from(dir));
+    }
+
+    match platform {
+        Platform::Windows => {
+            if let Ok(local) = local_appdata() {
+                prepend_to_process_path(
+                    &local
+                        .join("Programs")
+                        .join("OpenAI")
+                        .join("Codex")
+                        .join("bin"),
+                );
+            }
+        }
+        Platform::Macos | Platform::Other => {
+            if let Some(home) = dirs::home_dir() {
+                prepend_to_process_path(&home.join(".local").join("bin"));
+            }
+        }
+    }
+}
+
+fn refresh_cc_switch_path(platform: Platform) {
+    match platform {
+        Platform::Windows => {
+            if let Ok(local) = local_appdata() {
+                prepend_to_process_path(&local.join("cc-switch").join("bin"));
+            }
+        }
+        Platform::Macos | Platform::Other => {
+            if let Some(home) = dirs::home_dir() {
+                prepend_to_process_path(&home.join(".local").join("bin"));
+            }
+        }
+    }
+}
+
+fn prepend_to_process_path(dir: &Path) {
+    let current = env::var_os("PATH").unwrap_or_default();
+    let current_paths: Vec<PathBuf> = env::split_paths(&current).collect();
+    if current_paths.iter().any(|path| path == dir) {
+        return;
+    }
+
+    let mut paths = Vec::with_capacity(current_paths.len() + 1);
+    paths.push(dir.to_path_buf());
+    paths.extend(current_paths);
+    if let Ok(joined) = env::join_paths(paths) {
+        env::set_var("PATH", joined);
+    }
+}
+
 fn ensure_codex_app_before_cli(platform: Platform, yes: bool) -> Result<()> {
     match platform {
         Platform::Windows => ensure_codex_app_windows(yes),
@@ -348,7 +402,7 @@ fn ensure_codex_cli(platform: Platform, yes: bool) -> Result<()> {
     match platform {
         Platform::Windows => {
             let script = format!(
-                "$ErrorActionPreference='Stop'; $env:CODEX_NON_INTERACTIVE='1'; try {{ irm {CODEX_WINDOWS_INSTALL_MIRROR} -ErrorAction Stop | iex }} catch {{ Write-Host '镜像下载失败，改用官方安装脚本...'; irm {CODEX_WINDOWS_INSTALL_OFFICIAL} | iex }}"
+                "$ErrorActionPreference='Stop'; $env:CODEX_NON_INTERACTIVE='1'; $tmp=Join-Path $env:TEMP ('codex-install-' + [guid]::NewGuid().ToString() + '.ps1'); try {{ Invoke-WebRequest -Uri {CODEX_WINDOWS_INSTALL_MIRROR} -OutFile $tmp -ErrorAction Stop }} catch {{ Write-Host '镜像下载失败，改用官方安装脚本...'; Invoke-WebRequest -Uri {CODEX_WINDOWS_INSTALL_OFFICIAL} -OutFile $tmp }}; & $tmp"
             );
             run_command(
                 "powershell",
@@ -364,11 +418,15 @@ fn ensure_codex_cli(platform: Platform, yes: bool) -> Result<()> {
         }
         Platform::Macos | Platform::Other => {
             let script = format!(
-                "(curl -fsSL {CODEX_UNIX_INSTALL_MIRROR} || curl -fsSL {CODEX_UNIX_INSTALL_OFFICIAL}) | CODEX_NON_INTERACTIVE=1 sh"
+                "tmp=\"$(mktemp)\"; trap 'rm -f \"$tmp\"' EXIT; if curl -fsSL {CODEX_UNIX_INSTALL_MIRROR} -o \"$tmp\"; then :; else curl -fsSL {CODEX_UNIX_INSTALL_OFFICIAL} -o \"$tmp\"; fi; CODEX_NON_INTERACTIVE=1 sh \"$tmp\""
             );
             run_command("sh", &["-c", &script])
                 .context("Codex CLI 安装失败。请检查网络或手动运行官方安装命令。")?;
         }
+    }
+    refresh_codex_cli_path(platform);
+    if !command_exists("codex") {
+        bail!("Codex CLI 安装后仍未找到。请确认网络可访问 guide.gorustai.com，或使用 macOS DMG/Windows zip 离线包重新安装。");
     }
     Ok(())
 }
@@ -385,7 +443,12 @@ fn ensure_cc_switch(platform: Platform, yes: bool) -> Result<()> {
     match platform {
         Platform::Windows => install_cc_switch_windows(),
         Platform::Macos | Platform::Other => install_cc_switch_unix(),
+    }?;
+    refresh_cc_switch_path(platform);
+    if !command_exists("cc-switch") {
+        bail!("cc-switch 安装后仍未找到。请重新打开终端，或手动运行 cc-switch 安装命令。");
     }
+    Ok(())
 }
 
 fn install_cc_switch_windows() -> Result<()> {
@@ -424,7 +487,7 @@ fn install_cc_switch_windows() -> Result<()> {
 
 fn install_cc_switch_unix() -> Result<()> {
     let script = format!(
-        "(curl -fsSL {CC_SWITCH_UNIX_INSTALL_MIRROR} || curl -fsSL {CC_SWITCH_UNIX_INSTALL_OFFICIAL}) | bash"
+        "tmp=\"$(mktemp)\"; trap 'rm -f \"$tmp\"' EXIT; if curl -fsSL {CC_SWITCH_UNIX_INSTALL_MIRROR} -o \"$tmp\"; then :; else curl -fsSL {CC_SWITCH_UNIX_INSTALL_OFFICIAL} -o \"$tmp\"; fi; bash \"$tmp\""
     );
     run_command("sh", &["-c", &script])
         .context("cc-switch 安装失败。请检查网络或手动下载 release。")
@@ -486,23 +549,31 @@ fn write_codex_config() -> Result<()> {
 }
 
 fn install_fallback_skill() -> Result<()> {
-    if FALLBACK_SKILL_B64.trim().is_empty() {
+    if FALLBACK_SKILL.trim().is_empty() {
         println!("当前二进制未嵌入兜底 skill，跳过 skill 安装。");
         return Ok(());
     }
 
-    let decoded = decode_base64(FALLBACK_SKILL_B64.trim()).context("解析内置兜底 skill 失败")?;
-    let text = String::from_utf8(decoded).context("内置兜底 skill 不是 UTF-8 文本")?;
-    let skill_dir = dirs::home_dir()
-        .ok_or_else(|| anyhow!("无法获取用户目录"))?
+    let text = FALLBACK_SKILL;
+    let home = dirs::home_dir().ok_or_else(|| anyhow!("无法获取用户目录"))?;
+    let mut skill_dirs = vec![home
         .join(".agents")
         .join("skills")
-        .join("codex-gorustai-bootstrap");
-    fs::create_dir_all(&skill_dir)
-        .with_context(|| format!("创建 skill 目录失败: {}", skill_dir.display()))?;
-    let path = skill_dir.join("SKILL.md");
-    fs::write(&path, text).with_context(|| format!("写入兜底 skill 失败: {}", path.display()))?;
-    println!("已安装 Codex 兜底 skill: {}", path.display());
+        .join("codex-gorustai-bootstrap")];
+
+    let codex_home_skill_dir = codex_home().join("skills").join("codex-gorustai-bootstrap");
+    if !skill_dirs.iter().any(|dir| dir == &codex_home_skill_dir) {
+        skill_dirs.push(codex_home_skill_dir);
+    }
+
+    for skill_dir in skill_dirs {
+        fs::create_dir_all(&skill_dir)
+            .with_context(|| format!("创建 skill 目录失败: {}", skill_dir.display()))?;
+        let path = skill_dir.join("SKILL.md");
+        fs::write(&path, text)
+            .with_context(|| format!("写入兜底 skill 失败: {}", path.display()))?;
+        println!("已安装 Codex 兜底 skill: {}", path.display());
+    }
     Ok(())
 }
 
@@ -633,33 +704,6 @@ fn remove_marked_block(text: &str, start: &str, end: &str) -> String {
         }
     }
     out.join("\n")
-}
-
-fn decode_base64(input: &str) -> Result<Vec<u8>> {
-    let mut output = Vec::new();
-    let mut buffer = 0u32;
-    let mut bits = 0u8;
-
-    for byte in input.bytes().filter(|byte| !byte.is_ascii_whitespace()) {
-        let value = match byte {
-            b'A'..=b'Z' => byte - b'A',
-            b'a'..=b'z' => byte - b'a' + 26,
-            b'0'..=b'9' => byte - b'0' + 52,
-            b'+' => 62,
-            b'/' => 63,
-            b'=' => break,
-            _ => bail!("无效 base64 字符"),
-        } as u32;
-
-        buffer = (buffer << 6) | value;
-        bits += 6;
-        if bits >= 8 {
-            bits -= 8;
-            output.push(((buffer >> bits) & 0xff) as u8);
-        }
-    }
-
-    Ok(output)
 }
 
 fn local_appdata() -> Result<PathBuf> {

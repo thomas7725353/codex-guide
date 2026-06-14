@@ -5,6 +5,7 @@ $BinDir = Join-Path $InstallRoot "bin"
 $ExePath = Join-Path $BinDir "codex-guide.exe"
 $MirrorExe = "https://guide.gorustai.com/download/windows.exe"
 $GitHubApi = "https://api.github.com/repos/thomas7725353/codex-guide/releases/latest"
+$SkillUrl = "https://guide.gorustai.com/skills/codex-gorustai-bootstrap/SKILL.md"
 
 Write-Host "Codex Guide Windows 一键安装器"
 Write-Host "================================"
@@ -32,6 +33,22 @@ try {
   Invoke-WebRequest -Uri $Asset.browser_download_url -OutFile $Download
 }
 Move-Item -Force $Download $ExePath
+
+Write-Host "下载 Codex 兜底 skill..."
+try {
+  $SkillTargets = @(
+    (Join-Path $env:USERPROFILE ".agents\skills\codex-gorustai-bootstrap\SKILL.md"),
+    (Join-Path $env:USERPROFILE ".codex\skills\codex-gorustai-bootstrap\SKILL.md")
+  )
+  $SkillDownload = Join-Path $Tmp "SKILL.md"
+  Invoke-WebRequest -Uri $SkillUrl -OutFile $SkillDownload
+  foreach ($Target in $SkillTargets) {
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Target) | Out-Null
+    Copy-Item -Force $SkillDownload $Target
+  }
+} catch {
+  Write-Host "兜底 skill 下载失败，稍后由 codex-guide 内置 skill 写入。"
+}
 
 $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if (($UserPath -split ";") -notcontains $BinDir) {
