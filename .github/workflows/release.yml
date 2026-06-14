@@ -52,11 +52,12 @@ jobs:
             cp macos/install-codex-local.sh package/install-codex-local.sh
             mkdir -p package/codex-gorustai-bootstrap
             cp skills/codex-gorustai-bootstrap/SKILL.md package/codex-gorustai-bootstrap/SKILL.md
-            codex_tag="$(curl -fsSL https://api.github.com/repos/openai/codex/releases/latest | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
-            codex_version="${codex_tag#rust-v}"
             codex_asset="codex-package-${{ matrix.target }}.tar.gz"
-            curl -fL "https://github.com/openai/codex/releases/download/${codex_tag}/${codex_asset}" -o "package/${codex_asset}"
-            curl -fL "https://github.com/openai/codex/releases/download/${codex_tag}/codex-package_SHA256SUMS" -o "package/codex-package_SHA256SUMS"
+            curl -fL "https://github.com/openai/codex/releases/latest/download/${codex_asset}" -o "package/${codex_asset}"
+            curl -fL "https://github.com/openai/codex/releases/latest/download/codex-package_SHA256SUMS" -o "package/codex-package_SHA256SUMS"
+            tar -xOf "package/${codex_asset}" bin/codex > /tmp/codex-guide-codex
+            chmod +x /tmp/codex-guide-codex
+            codex_version="$(/tmp/codex-guide-codex --version | awk '{ print $NF }')"
             printf "%s" "${codex_version}" > package/codex-version.txt
             printf "%s" "${{ matrix.target }}" > package/codex-target.txt
             chmod +x package/codex-guide package/安装Codex.command package/install-codex-local.sh
