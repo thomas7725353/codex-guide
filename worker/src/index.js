@@ -18,6 +18,8 @@ const RELEASE_ASSETS = new Set([
   "codex-guide-windows-x64.exe",
   "codex-guide-macos-arm64",
   "codex-guide-macos-x64",
+  "codex-guide-macos-arm64.dmg",
+  "codex-guide-macos-x64.dmg",
 ]);
 
 const SECURITY_HEADERS = {
@@ -48,8 +50,14 @@ export default {
       case "/download/windows.exe":
         return proxyBinary(`${GITHUB_RELEASE_LATEST}/codex-guide-windows-x64.exe`);
       case "/download/macos-arm64":
-        return proxyBinary(`${GITHUB_RELEASE_LATEST}/codex-guide-macos-arm64`);
+      case "/download/macos-arm64.dmg":
+        return proxyBinary(`${GITHUB_RELEASE_LATEST}/codex-guide-macos-arm64.dmg`);
       case "/download/macos-x64":
+      case "/download/macos-x64.dmg":
+        return proxyBinary(`${GITHUB_RELEASE_LATEST}/codex-guide-macos-x64.dmg`);
+      case "/download/macos-arm64-cli":
+        return proxyBinary(`${GITHUB_RELEASE_LATEST}/codex-guide-macos-arm64`);
+      case "/download/macos-x64-cli":
         return proxyBinary(`${GITHUB_RELEASE_LATEST}/codex-guide-macos-x64`);
       case "/codex/windows-app":
         return Response.redirect(CODEX_APP_WINDOWS, 302);
@@ -307,8 +315,10 @@ cc-switch --app codex</pre>
         <ul>
           <li>Windows 安装包：<a href="${origin}/download/windows.zip">${origin}/download/windows.zip</a></li>
           <li>Windows exe：<a href="${origin}/download/windows.exe">${origin}/download/windows.exe</a></li>
-          <li>macOS ARM64：<a href="${origin}/download/macos-arm64">${origin}/download/macos-arm64</a></li>
-          <li>macOS x64：<a href="${origin}/download/macos-x64">${origin}/download/macos-x64</a></li>
+          <li>macOS ARM64 DMG：<a href="${origin}/download/macos-arm64.dmg">${origin}/download/macos-arm64.dmg</a></li>
+          <li>macOS x64 DMG：<a href="${origin}/download/macos-x64.dmg">${origin}/download/macos-x64.dmg</a></li>
+          <li>macOS ARM64 CLI：<a href="${origin}/download/macos-arm64-cli">${origin}/download/macos-arm64-cli</a></li>
+          <li>macOS x64 CLI：<a href="${origin}/download/macos-x64-cli">${origin}/download/macos-x64-cli</a></li>
           <li>Codex CLI Windows：<a href="${origin}/codex/install.ps1">${origin}/codex/install.ps1</a></li>
           <li>Codex CLI macOS/Linux：<a href="${origin}/codex/install.sh">${origin}/codex/install.sh</a></li>
           <li>cc-switch Windows：<a href="${origin}/cc-switch/windows-x64.zip">${origin}/cc-switch/windows-x64.zip</a></li>

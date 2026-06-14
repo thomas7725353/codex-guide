@@ -24,12 +24,12 @@ jobs:
             target: aarch64-apple-darwin
             asset: codex-guide-macos-arm64
             bin: codex-guide
-            package: ""
+            package: codex-guide-macos-arm64.dmg
           - os: macos-latest
             target: x86_64-apple-darwin
             asset: codex-guide-macos-x64
             bin: codex-guide
-            package: ""
+            package: codex-guide-macos-x64.dmg
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -47,6 +47,13 @@ jobs:
           mkdir -p dist
           cp target/${{ matrix.target }}/release/${{ matrix.bin }} dist/${{ matrix.asset }}
           chmod +x dist/${{ matrix.asset }}
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            mkdir -p package
+            cp dist/${{ matrix.asset }} package/codex-guide
+            cp macos/安装Codex.command package/安装Codex.command
+            chmod +x package/codex-guide package/安装Codex.command
+            hdiutil create -volname "Codex Guide" -srcfolder package -ov -format UDZO dist/${{ matrix.package }}
+          fi
       - name: Prepare artifact on Windows
         if: runner.os == 'Windows'
         shell: pwsh
@@ -71,7 +78,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset }}
-          path: dist/${{ matrix.asset }}
+          path: |
+            dist/${{ matrix.asset }}
+            dist/${{ matrix.package }}
           if-no-files-found: error
 
   release:

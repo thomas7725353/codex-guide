@@ -111,6 +111,13 @@ codex-guide launch-codex
 codex-guide launch-cc-switch
 ```
 
+不会用终端的 macOS 用户可以下载 DMG：
+
+- Apple Silicon / M 系列芯片：https://guide.gorustai.com/download/macos-arm64.dmg
+- Intel 芯片：https://guide.gorustai.com/download/macos-x64.dmg
+
+打开 DMG 后双击 `安装Codex.command`。
+
 ## Windows 常见问题
 
 如果提示脚本不能运行，用管理员 PowerShell 执行：
@@ -168,6 +175,9 @@ goals = true
   - macOS/Linux: `https://chatgpt.com/codex/install.sh`
 - Codex Windows App: https://get.microsoft.com/installer/download/9PLM9XGG6VKS?cid=website_cta_psi
 - `cc-switch-cli` releases: https://github.com/SaladDay/cc-switch-cli/releases
+- Codex Guide macOS DMG:
+  - ARM64: https://guide.gorustai.com/download/macos-arm64.dmg
+  - x64: https://guide.gorustai.com/download/macos-x64.dmg
 
 ## Cloudflare Worker 部署
 

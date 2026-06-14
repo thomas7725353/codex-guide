@@ -29,8 +29,8 @@ mkdir -p "${install_dir}"
 
 download_url="${mirror}/download/${asset#codex-guide-}"
 case "${asset}" in
-  codex-guide-macos-arm64) download_url="${mirror}/download/macos-arm64" ;;
-  codex-guide-macos-x64) download_url="${mirror}/download/macos-x64" ;;
+  codex-guide-macos-arm64) download_url="${mirror}/download/macos-arm64-cli" ;;
+  codex-guide-macos-x64) download_url="${mirror}/download/macos-x64-cli" ;;
 esac
 
 fallback_url() {
