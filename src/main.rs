@@ -19,6 +19,10 @@ const CODEX_APP_WINDOWS: &str =
     "https://get.microsoft.com/installer/download/9PLM9XGG6VKS?cid=website_cta_psi";
 const DEFAULT_MODEL: &str = "gpt-5.5";
 const DEFAULT_BASE_URL: &str = "https://gorustai.com";
+const FALLBACK_SKILL_B64: &str = match option_env!("CODEX_GUIDE_FALLBACK_SKILL_B64") {
+    Some(value) => value,
+    None => "",
+};
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -97,6 +101,7 @@ fn setup(yes: bool, api_key: Option<String>) -> Result<()> {
     };
     set_openai_api_key(&key)?;
     write_codex_config()?;
+    install_fallback_skill()?;
 
     println!();
     println!("正在做最后检查...");
@@ -115,7 +120,7 @@ fn setup(yes: bool, api_key: Option<String>) -> Result<()> {
     println!();
     println!("如果这台电脑环境有问题，运行下面这条，让 Codex CLI 帮你检查和修：");
     println!(
-        "  codex \"请检查这台电脑的 Codex、cc-switch、Git、Node、PATH 和 PowerShell 环境，能自动修复的直接修复，不能修复的用中文告诉我下一步。\""
+        "  codex \"$codex-gorustai-bootstrap 按 skill 检查并安装全套：Codex App、Codex CLI、cc-switch-cli、OPENAI_API_KEY 环境变量和 gorustai provider 配置。\""
     );
     if platform == Platform::Windows {
         println!();
@@ -413,6 +418,27 @@ fn write_codex_config() -> Result<()> {
     Ok(())
 }
 
+fn install_fallback_skill() -> Result<()> {
+    if FALLBACK_SKILL_B64.trim().is_empty() {
+        println!("当前二进制未嵌入兜底 skill，跳过 skill 安装。");
+        return Ok(());
+    }
+
+    let decoded = decode_base64(FALLBACK_SKILL_B64.trim()).context("解析内置兜底 skill 失败")?;
+    let text = String::from_utf8(decoded).context("内置兜底 skill 不是 UTF-8 文本")?;
+    let skill_dir = dirs::home_dir()
+        .ok_or_else(|| anyhow!("无法获取用户目录"))?
+        .join(".agents")
+        .join("skills")
+        .join("codex-gorustai-bootstrap");
+    fs::create_dir_all(&skill_dir)
+        .with_context(|| format!("创建 skill 目录失败: {}", skill_dir.display()))?;
+    let path = skill_dir.join("SKILL.md");
+    fs::write(&path, text).with_context(|| format!("写入兜底 skill 失败: {}", path.display()))?;
+    println!("已安装 Codex 兜底 skill: {}", path.display());
+    Ok(())
+}
+
 fn set_openai_api_key(api_key: &str) -> Result<()> {
     let key = api_key.trim();
     if key.is_empty() {
@@ -540,6 +566,33 @@ fn remove_marked_block(text: &str, start: &str, end: &str) -> String {
         }
     }
     out.join("\n")
+}
+
+fn decode_base64(input: &str) -> Result<Vec<u8>> {
+    let mut output = Vec::new();
+    let mut buffer = 0u32;
+    let mut bits = 0u8;
+
+    for byte in input.bytes().filter(|byte| !byte.is_ascii_whitespace()) {
+        let value = match byte {
+            b'A'..=b'Z' => byte - b'A',
+            b'a'..=b'z' => byte - b'a' + 26,
+            b'0'..=b'9' => byte - b'0' + 52,
+            b'+' => 62,
+            b'/' => 63,
+            b'=' => break,
+            _ => bail!("无效 base64 字符"),
+        } as u32;
+
+        buffer = (buffer << 6) | value;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            output.push(((buffer >> bits) & 0xff) as u8);
+        }
+    }
+
+    Ok(output)
 }
 
 fn local_appdata() -> Result<PathBuf> {

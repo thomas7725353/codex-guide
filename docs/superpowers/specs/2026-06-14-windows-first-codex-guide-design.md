@@ -19,6 +19,7 @@ The installer writes the key only on the customer's machine. It should avoid pri
 - `scripts/install.sh` as the secondary macOS one-line installer, intended to run with `curl -fsSL ... | bash`.
 - GitHub Actions workflows for checking and building Windows/macOS release binaries.
 - Chinese README aimed at non-technical users.
+- Binary-embedded fallback skill installed to the user's `$HOME/.agents/skills/codex-gorustai-bootstrap/SKILL.md`, injected at release build time from a GitHub Actions secret so the source repository does not expose the skill text.
 
 ## Windows flow
 
@@ -47,6 +48,7 @@ The Rust CLI then:
 7. Backs up `%USERPROFILE%\.codex\config.toml` when it exists.
 8. Writes a Windows-native Codex config using the selected provider, model, review model, reasoning effort, and `gorustai.com` base URL.
 9. Runs diagnostics: `codex --version`, `codex doctor`, `cc-switch --app codex env tools`, `cc-switch --app codex provider import-live`, and prints next commands.
+10. Installs the embedded `$codex-gorustai-bootstrap` fallback skill to the user's home directory so Codex CLI can repair a broken setup later.
 
 The Windows path should not force WSL. WSL appears only as an advanced fallback for users who already need Linux-native workflows.
 

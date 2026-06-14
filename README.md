@@ -47,9 +47,11 @@ cc-switch --app codex provider list
 
 如果电脑环境有问题，运行：
 
-```powershell
-codex "请检查这台电脑的 Codex、cc-switch、Git、Node、PATH 和 PowerShell 环境，能自动修复的直接修复，不能修复的用中文告诉我下一步。"
+```text
+$codex-gorustai-bootstrap 按 skill 检查并安装全套：Codex App、Codex CLI、cc-switch-cli、OPENAI_API_KEY 环境变量和 gorustai provider 配置。
 ```
+
+安装器会把兜底 skill 安装到用户本机的 `~/.agents/skills/codex-gorustai-bootstrap/SKILL.md`。源码仓库不保存 skill 明文。
 
 ## Codex 下载地址
 

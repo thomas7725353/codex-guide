@@ -38,6 +38,8 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - name: Build
+        env:
+          CODEX_GUIDE_FALLBACK_SKILL_B64: ${{ secrets.CODEX_GUIDE_FALLBACK_SKILL_B64 }}
         run: cargo build --release --target ${{ matrix.target }}
       - name: Prepare artifact on Unix
         if: runner.os != 'Windows'
