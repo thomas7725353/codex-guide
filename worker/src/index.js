@@ -84,10 +84,18 @@ async function releaseAsset(assetName) {
 }
 
 async function proxyText(target, contentType) {
-  const response = await fetch(target, cfFetchInit());
+  const response = await fetch(target, {
+    headers: {
+      "user-agent": "codex-guide-worker/0.1",
+      accept: "*/*",
+    },
+    cf: {
+      cacheTtl: 0,
+    },
+  });
   return passThrough(response, {
     "content-type": contentType,
-    "cache-control": "public, max-age=120",
+    "cache-control": "no-store",
   });
 }
 
