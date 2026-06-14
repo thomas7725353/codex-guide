@@ -60,7 +60,9 @@ jobs:
             printf "%s" "${codex_version}" > package/codex-version.txt
             printf "%s" "${{ matrix.target }}" > package/codex-target.txt
             chmod +x package/codex-guide package/安装Codex.command package/install-codex-local.sh
-            hdiutil create -volname "Codex Guide" -srcfolder package -ov -format UDZO dist/${{ matrix.package }}
+            package_size_mb="$(du -sm package | awk '{ print $1 }')"
+            dmg_size_mb="$((package_size_mb + 128))"
+            hdiutil create -volname "Codex Guide" -srcfolder package -ov -fs HFS+ -size "${dmg_size_mb}m" -format UDZO dist/${{ matrix.package }}
           fi
       - name: Prepare artifact on Windows
         if: runner.os == 'Windows'
