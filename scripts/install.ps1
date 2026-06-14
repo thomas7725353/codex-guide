@@ -38,5 +38,7 @@ Write-Host "启动安装配置..."
 & $ExePath setup
 
 Write-Host ""
-Write-Host "完成。请重新打开 PowerShell 后运行 codex 或 cc-switch。"
-
+Write-Host "完成。故障远程运维时运行："
+Write-Host "  codex-guide launch-codex"
+Write-Host "也可以启动 cc-switch："
+Write-Host "  codex-guide launch-cc-switch"

@@ -18,6 +18,25 @@ if not exist "codex-guide.exe" (
 codex-guide.exe setup
 
 echo.
-echo 安装流程结束。如果上面没有红色错误，请重新打开 PowerShell，然后运行 codex。
-pause
+echo 安装流程结束。
+echo.
+echo 如果电脑出故障或需要远程运维，请选择 1，直接启动 Codex CLI。
+echo.
+echo 请选择下一步：
+echo   1. 启动 Codex CLI
+echo   2. 启动 cc-switch-cli
+echo   3. 退出
+set /p choice=请输入 1/2/3 后回车：
+if "%choice%"=="1" (
+  codex-guide.exe launch-codex
+  pause
+  exit /b 0
+)
+if "%choice%"=="2" (
+  codex-guide.exe launch-cc-switch
+  pause
+  exit /b 0
+)
 
+echo 以后可以重新打开 PowerShell，然后运行 codex-guide launch-codex 或 codex-guide launch-cc-switch。
+pause

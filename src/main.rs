@@ -44,6 +44,10 @@ enum Commands {
     },
     /// Print detected tool and config status.
     Doctor,
+    /// Start Codex CLI for remote support or manual repair.
+    LaunchCodex,
+    /// Start cc-switch-cli in Codex mode.
+    LaunchCcSwitch,
     /// Print the generated Codex config without writing it.
     PrintConfig,
 }
@@ -75,6 +79,8 @@ fn main() -> Result<()> {
     }) {
         Commands::Setup { yes, api_key } => setup(yes, api_key),
         Commands::Doctor => doctor(),
+        Commands::LaunchCodex => launch_codex(),
+        Commands::LaunchCcSwitch => launch_cc_switch(),
         Commands::PrintConfig => {
             print!("{}", codex_config());
             Ok(())
@@ -114,9 +120,10 @@ fn setup(yes: bool, api_key: Option<String>) -> Result<()> {
     println!();
     println!("安装配置完成。");
     println!("下一步：重新打开 PowerShell/终端，然后运行：");
-    println!("  codex");
+    println!("  codex-guide launch-codex");
+    println!("  codex-guide launch-cc-switch");
     println!("  codex doctor");
-    println!("  cc-switch --app codex provider list");
+    println!("  cc-switch --app codex");
     println!();
     println!("如果这台电脑环境有问题，运行下面这条，让 Codex CLI 帮你检查和修：");
     println!(
@@ -141,6 +148,22 @@ fn doctor() -> Result<()> {
     println!("Codex config: {}", codex_config_path().display());
     println!("Codex auth: {}", codex_auth_path().display());
     Ok(())
+}
+
+fn launch_codex() -> Result<()> {
+    if !command_exists("codex") {
+        bail!("没有找到 codex。请先运行 codex-guide setup 安装 Codex CLI。");
+    }
+    println!("启动 Codex CLI。远程运维时，把这个窗口里的报错和提示发给技术人员。");
+    run_command_interactive("codex", &[])
+}
+
+fn launch_cc_switch() -> Result<()> {
+    if !command_exists("cc-switch") {
+        bail!("没有找到 cc-switch。请先运行 codex-guide setup 安装 cc-switch-cli。");
+    }
+    println!("启动 cc-switch-cli Codex 管理界面。");
+    run_command_interactive("cc-switch", &["--app", "codex"])
 }
 
 fn print_header() {
@@ -630,6 +653,15 @@ fn run_command(cmd: &str, args: &[&str]) -> Result<()> {
         Ok(())
     } else {
         bail!("命令失败: {cmd} {}", args.join(" "))
+    }
+}
+
+fn run_command_interactive(cmd: &str, args: &[&str]) -> Result<()> {
+    let status = Command::new(cmd).args(args).status()?;
+    if status.success() {
+        Ok(())
+    } else {
+        bail!("命令退出: {cmd} {}", args.join(" "))
     }
 }
 

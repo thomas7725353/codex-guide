@@ -40,9 +40,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubus
 完成后重新打开 PowerShell，运行：
 
 ```powershell
-codex
+codex-guide launch-codex
+codex-guide launch-cc-switch
 codex doctor
-cc-switch --app codex provider list
+cc-switch --app codex
+```
+
+故障远程运维时，让用户运行或双击菜单选择：
+
+```powershell
+codex-guide launch-codex
 ```
 
 如果电脑环境有问题，运行：
@@ -83,6 +90,13 @@ curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/thomas7725353/codex-guide/main/scripts/install.sh | bash
+```
+
+macOS 安装完成后同样可以运行：
+
+```bash
+codex-guide launch-codex
+codex-guide launch-cc-switch
 ```
 
 ## Windows 常见问题
