@@ -49,9 +49,11 @@ Never invent or hard-code an API key. If the environment variable is missing, pr
    - `codex --version`
    - `codex doctor`
    - `cc-switch --app codex env tools`
+   - `cc-switch --app codex provider import-live`
    - `cc-switch --app codex provider list`
 4. Inspect:
    - Codex config: `${CODEX_HOME:-$HOME/.codex}/config.toml` on macOS, `%USERPROFILE%\.codex\config.toml` on Windows.
+   - CC-Switch config: `${CC_SWITCH_CONFIG_DIR:-$HOME/.cc-switch}/cc-switch.db` on macOS, `%USERPROFILE%\.cc-switch\cc-switch.db` on Windows unless `CC_SWITCH_CONFIG_DIR` is set.
    - User skill folders: `$HOME/.agents/skills/codex-gorustai-bootstrap` and `${CODEX_HOME:-$HOME/.codex}/skills/codex-gorustai-bootstrap`.
 
 ## Repair Order
@@ -245,6 +247,7 @@ codex doctor
 cc-switch --app codex provider import-live
 cc-switch --app codex env tools
 cc-switch --app codex provider list
+cc-switch --app codex provider current
 ```
 
 A good final state has:
@@ -252,6 +255,7 @@ A good final state has:
 - `codex --version` prints a version.
 - `codex doctor` runs.
 - `cc-switch --app codex provider list` shows `default` or `gorustai` pointing at `https://gorustai.com`.
+- `${CC_SWITCH_CONFIG_DIR:-$HOME/.cc-switch}/cc-switch.db` exists after `provider import-live`.
 - The user can start remote support with `codex-guide launch-codex`.
 
 ## Failure Handling

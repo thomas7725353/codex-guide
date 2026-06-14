@@ -423,7 +423,7 @@ function renderHome(origin) {
       <section class="section">
         <h2>Windows 一行安装</h2>
         <pre>${escapeHtml(winScript)}</pre>
-        <p class="muted">这个命令会下载本项目安装器，再自动检查 Codex App、Codex CLI、cc-switch-cli 和配置文件。</p>
+        <p class="muted">这个命令会下载本项目安装器，再自动检查 Codex App、Codex CLI、cc-switch-cli、Codex 配置和 cc-switch 配置数据库。</p>
       </section>
 
       <section class="section">
@@ -446,6 +446,19 @@ cc-switch --app codex</pre>
           <pre>codex-guide launch-codex</pre>
           <p class="muted">技术人员可以看这个窗口里的报错继续处理。</p>
         </div>
+      </section>
+
+      <section class="section">
+        <h2>cc-switch-cli 用法</h2>
+        <p>普通用户直接启动 Codex 管理界面：</p>
+        <pre>codex-guide launch-cc-switch
+cc-switch --app codex</pre>
+        <p>检查当前 Codex provider：</p>
+        <pre>cc-switch --app codex env tools
+cc-switch --app codex provider list
+cc-switch --app codex provider current</pre>
+        <p>手动改过 Codex 配置后重新导入：</p>
+        <pre>cc-switch --app codex provider import-live</pre>
       </section>
 
       <section class="section">
@@ -483,6 +496,7 @@ env_key = "OPENAI_API_KEY"
 
 [features]
 goals = true</pre>
+        <p class="muted">安装器随后会运行 <code>cc-switch --app codex provider import-live</code>，把这份 Codex live 配置导入到 <code>~/.cc-switch/cc-switch.db</code>。</p>
       </section>
 
       <footer>

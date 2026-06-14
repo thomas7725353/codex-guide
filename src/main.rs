@@ -113,15 +113,16 @@ fn setup(yes: bool, api_key: Option<String>) -> Result<()> {
     };
     set_openai_api_key(&key)?;
     write_codex_config()?;
+    configure_cc_switch()?;
     install_fallback_skill()?;
 
     println!();
     println!("正在做最后检查...");
     run_best_effort("codex", &["--version"]);
     run_best_effort("codex", &["doctor"]);
-    run_best_effort("cc-switch", &["--app", "codex", "provider", "import-live"]);
     run_best_effort("cc-switch", &["--app", "codex", "env", "tools"]);
     run_best_effort("cc-switch", &["--app", "codex", "provider", "list"]);
+    run_best_effort("cc-switch", &["--app", "codex", "provider", "current"]);
 
     println!();
     println!("安装配置完成。");
@@ -153,6 +154,15 @@ fn doctor() -> Result<()> {
     println!("node: {}", status_for_command("node"));
     println!("Codex config: {}", codex_config_path().display());
     println!("Codex auth: {}", codex_auth_path().display());
+    println!(
+        "CC-Switch config: {} ({})",
+        cc_switch_db_path().display(),
+        if cc_switch_db_path().exists() {
+            "已生成"
+        } else {
+            "未生成"
+        }
+    );
     Ok(())
 }
 
@@ -548,6 +558,21 @@ fn write_codex_config() -> Result<()> {
     Ok(())
 }
 
+fn configure_cc_switch() -> Result<()> {
+    if !command_exists("cc-switch") {
+        bail!("没有找到 cc-switch，无法生成 cc-switch-cli 配置。请先运行 codex-guide setup 安装 cc-switch-cli。");
+    }
+
+    println!("正在生成/同步 cc-switch-cli 的 Codex provider 配置...");
+    run_command("cc-switch", &["--app", "codex", "provider", "import-live"])
+        .context("cc-switch 导入 Codex live 配置失败")?;
+    println!(
+        "cc-switch-cli 配置已同步: {}",
+        cc_switch_db_path().display()
+    );
+    Ok(())
+}
+
 fn install_fallback_skill() -> Result<()> {
     if FALLBACK_SKILL.trim().is_empty() {
         println!("当前二进制未嵌入兜底 skill，跳过 skill 安装。");
@@ -658,6 +683,21 @@ fn codex_config_path() -> PathBuf {
 
 fn codex_auth_path() -> PathBuf {
     codex_home().join("auth.json")
+}
+
+fn cc_switch_config_dir() -> PathBuf {
+    env::var_os("CC_SWITCH_CONFIG_DIR")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            dirs::home_dir()
+                .expect("无法获取用户目录")
+                .join(".cc-switch")
+        })
+}
+
+fn cc_switch_db_path() -> PathBuf {
+    cc_switch_config_dir().join("cc-switch.db")
 }
 
 fn escape_powershell_single_quoted(value: &str) -> String {

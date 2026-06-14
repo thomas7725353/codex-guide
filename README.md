@@ -28,7 +28,7 @@ https://guide.gorustai.com
 3. 双击里面的 `安装Codex.bat`。
 4. 按提示粘贴你的 `OPENAI_API_KEY`。
 
-安装包会先检查有没有 Codex App，没有就自动安装；然后安装 Codex CLI、`cc-switch-cli`，并写好 Codex 配置。
+安装包会先检查有没有 Codex App，没有就自动安装；然后安装 Codex CLI、`cc-switch-cli`，写好 Codex 配置，并把这个 live 配置导入到 `cc-switch-cli` 的 `~/.cc-switch/cc-switch.db`。
 
 ## Windows 一行安装
 
@@ -46,8 +46,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://guide.gorust
 - 安装 Codex CLI
 - 下载并安装 `cc-switch-cli`
 - 写入 `%USERPROFILE%\.codex\config.toml`
+- 运行 `cc-switch --app codex provider import-live` 生成/同步 `cc-switch-cli` 配置
 - 让你输入 `OPENAI_API_KEY`
-- 运行 `codex --version`、`codex doctor` 和 `cc-switch --app codex env tools`
+- 运行 `codex --version`、`codex doctor`、`cc-switch --app codex env tools` 和 `cc-switch --app codex provider list`
 
 完成后重新打开 PowerShell，运行：
 
@@ -57,6 +58,31 @@ codex-guide launch-cc-switch
 codex doctor
 cc-switch --app codex
 ```
+
+## cc-switch-cli 用法
+
+安装完成后，普通用户主要用这两个入口：
+
+```bash
+codex-guide launch-cc-switch
+cc-switch --app codex
+```
+
+常用检查命令：
+
+```bash
+cc-switch --app codex env tools
+cc-switch --app codex provider list
+cc-switch --app codex provider current
+```
+
+如果手动改过 `${CODEX_HOME:-~/.codex}/config.toml`，重新导入到 `cc-switch-cli`：
+
+```bash
+cc-switch --app codex provider import-live
+```
+
+`provider list` 里能看到指向 `https://gorustai.com` 的 `default` 或 `gorustai` provider，就说明 `cc-switch-cli` 已经能管理当前 Codex 配置。
 
 故障远程运维时，让用户运行或双击菜单选择：
 
@@ -175,6 +201,14 @@ goals = true
 ```
 
 旧配置会自动备份成 `.bak-时间戳`。
+
+安装器还会调用：
+
+```bash
+cc-switch --app codex provider import-live
+```
+
+这一步会让 `cc-switch-cli` 从上面的 Codex live config 生成自己的配置数据库。默认路径是 `~/.cc-switch/cc-switch.db`，如果用户设置了 `CC_SWITCH_CONFIG_DIR`，则写到该目录下的 `cc-switch.db`。
 
 ## 手动下载地址
 

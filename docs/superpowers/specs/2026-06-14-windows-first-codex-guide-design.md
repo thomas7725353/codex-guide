@@ -47,8 +47,9 @@ The Rust CLI then:
 6. Prompts for `OPENAI_API_KEY`.
 7. Backs up `%USERPROFILE%\.codex\config.toml` when it exists.
 8. Writes a Windows-native Codex config using the selected provider, model, review model, reasoning effort, and `gorustai.com` base URL.
-9. Runs diagnostics: `codex --version`, `codex doctor`, `cc-switch --app codex env tools`, `cc-switch --app codex provider import-live`, and prints next commands.
-10. Installs the embedded `$codex-gorustai-bootstrap` fallback skill to the user's home directory so Codex CLI can repair a broken setup later.
+9. Runs `cc-switch --app codex provider import-live` so cc-switch-cli creates or updates its own `%USERPROFILE%\.cc-switch\cc-switch.db` from the Codex live config.
+10. Runs diagnostics: `codex --version`, `codex doctor`, `cc-switch --app codex env tools`, `cc-switch --app codex provider list`, and prints next commands.
+11. Installs the embedded `$codex-gorustai-bootstrap` fallback skill to the user's home directory so Codex CLI can repair a broken setup later.
 
 The Windows path should not force WSL. WSL appears only as an advanced fallback for users who already need Linux-native workflows.
 
