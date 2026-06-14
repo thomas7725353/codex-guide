@@ -1,7 +1,8 @@
 target/
 dist/
+node_modules/
+.wrangler/
 .DS_Store
 *.log
 *.tmp
 docs/superpowers/plans/
-

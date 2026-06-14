@@ -4,11 +4,23 @@
 
 仓库不会保存真实 API key。
 
+## 中国用户入口
+
+如果 GitHub 打不开，直接访问：
+
+https://guide.gorustai.com
+
+这个 Cloudflare Worker 页面包含 Windows 下载、macOS 安装命令、Codex App 下载和 `cc-switch-cli` 镜像入口。
+
 ## Windows 最简单：下载后双击
 
 大部分用户用这个方式，不需要会 PowerShell。
 
 1. 下载 Windows 安装包：
+
+   https://guide.gorustai.com/download/windows.zip
+
+   GitHub 备用地址：
 
    https://github.com/thomas7725353/codex-guide/releases/latest/download/codex-guide-windows-x64.zip
 
@@ -23,7 +35,7 @@
 打开 PowerShell，粘贴：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/thomas7725353/codex-guide/main/scripts/install.ps1 | iex"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://guide.gorustai.com/install.ps1 | iex"
 ```
 
 安装器会自动：
@@ -89,7 +101,7 @@ curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_NON_INTERACTIVE=1 sh
 打开终端，粘贴：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/thomas7725353/codex-guide/main/scripts/install.sh | bash
+curl -fsSL https://guide.gorustai.com/install.sh | bash
 ```
 
 macOS 安装完成后同样可以运行：
@@ -156,3 +168,19 @@ goals = true
   - macOS/Linux: `https://chatgpt.com/codex/install.sh`
 - Codex Windows App: https://get.microsoft.com/installer/download/9PLM9XGG6VKS?cid=website_cta_psi
 - `cc-switch-cli` releases: https://github.com/SaladDay/cc-switch-cli/releases
+
+## Cloudflare Worker 部署
+
+教程和镜像入口部署在：
+
+https://guide.gorustai.com
+
+Worker 源码在 `worker/src/index.js`，域名绑定在 `wrangler.toml`。改教程、脚本、Worker 或 README 后，GitHub Actions 会自动运行 `Deploy Worker` 并部署到 Cloudflare。
+
+需要的 GitHub secrets：
+
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_API_TOKEN`
+- `CODEX_GUIDE_FALLBACK_SKILL_B64`
+
+Cloudflare token 不要写进仓库。

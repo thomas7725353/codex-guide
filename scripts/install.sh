@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo="thomas7725353/codex-guide"
+mirror="https://guide.gorustai.com"
 install_dir="${HOME}/.local/bin"
 bin_path="${install_dir}/codex-guide"
 
@@ -25,15 +26,24 @@ case "${arch}" in
 esac
 
 mkdir -p "${install_dir}"
-tmp="$(mktemp -d)"
-trap 'rm -rf "${tmp}"' EXIT
 
-release_json="${tmp}/release.json"
-curl -fsSL "https://api.github.com/repos/${repo}/releases/latest" -o "${release_json}"
-download_url="$(python3 - "${release_json}" "${asset}" <<'PY'
+download_url="${mirror}/download/${asset#codex-guide-}"
+case "${asset}" in
+  codex-guide-macos-arm64) download_url="${mirror}/download/macos-arm64" ;;
+  codex-guide-macos-x64) download_url="${mirror}/download/macos-x64" ;;
+esac
+
+fallback_url() {
+  python3 - "${repo}" "${asset}" <<'PY'
 import json, sys
-data = json.load(open(sys.argv[1]))
+import urllib.request
+repo = sys.argv[1]
 asset_name = sys.argv[2]
+req = urllib.request.Request(
+    f"https://api.github.com/repos/{repo}/releases/latest",
+    headers={"User-Agent": "codex-guide-installer"},
+)
+data = json.load(urllib.request.urlopen(req))
 for asset in data.get("assets", []):
     if asset.get("name") == asset_name:
         print(asset["browser_download_url"])
@@ -41,10 +51,10 @@ for asset in data.get("assets", []):
 else:
     raise SystemExit(f"missing asset: {asset_name}")
 PY
-)"
+}
 
 echo "下载 ${asset}"
-curl -fL "${download_url}" -o "${bin_path}"
+curl -fL "${download_url}" -o "${bin_path}" || curl -fL "$(fallback_url)" -o "${bin_path}"
 chmod +x "${bin_path}"
 
 case ":${PATH}:" in
@@ -57,4 +67,3 @@ case ":${PATH}:" in
 esac
 
 "${bin_path}" setup
-

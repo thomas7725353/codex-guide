@@ -1,0 +1,9 @@
+name = "codex-guide"
+main = "worker/src/index.js"
+compatibility_date = "2026-06-14"
+account_id = "ad59371c9ca78f9556cb6a91a3fa7d0d"
+workers_dev = true
+
+[[routes]]
+pattern = "guide.gorustai.com"
+custom_domain = true

@@ -13,10 +13,16 @@ use zip::ZipArchive;
 
 const REPO: &str = "thomas7725353/codex-guide";
 const CC_SWITCH_REPO: &str = "SaladDay/cc-switch-cli";
-const CODEX_WINDOWS_INSTALL: &str = "https://chatgpt.com/codex/install.ps1";
-const CODEX_UNIX_INSTALL: &str = "https://chatgpt.com/codex/install.sh";
+const CODEX_WINDOWS_INSTALL_MIRROR: &str = "https://guide.gorustai.com/codex/install.ps1";
+const CODEX_WINDOWS_INSTALL_OFFICIAL: &str = "https://chatgpt.com/codex/install.ps1";
+const CODEX_UNIX_INSTALL_MIRROR: &str = "https://guide.gorustai.com/codex/install.sh";
+const CODEX_UNIX_INSTALL_OFFICIAL: &str = "https://chatgpt.com/codex/install.sh";
 const CODEX_APP_WINDOWS: &str =
     "https://get.microsoft.com/installer/download/9PLM9XGG6VKS?cid=website_cta_psi";
+const CC_SWITCH_WINDOWS_MIRROR: &str = "https://guide.gorustai.com/cc-switch/windows-x64.zip";
+const CC_SWITCH_UNIX_INSTALL_MIRROR: &str = "https://guide.gorustai.com/cc-switch/install.sh";
+const CC_SWITCH_UNIX_INSTALL_OFFICIAL: &str =
+    "https://github.com/SaladDay/cc-switch-cli/releases/latest/download/install.sh";
 const DEFAULT_MODEL: &str = "gpt-5.5";
 const DEFAULT_BASE_URL: &str = "https://gorustai.com";
 const FALLBACK_SKILL_B64: &str = match option_env!("CODEX_GUIDE_FALLBACK_SKILL_B64") {
@@ -98,8 +104,9 @@ fn setup(yes: bool, api_key: Option<String>) -> Result<()> {
     }
 
     print_system_info();
-    ensure_codex_app(platform, yes)?;
+    ensure_codex_app_before_cli(platform, yes)?;
     ensure_codex_cli(platform, yes)?;
+    ensure_codex_app_after_cli(platform)?;
     ensure_cc_switch(platform, yes)?;
     let key = match api_key {
         Some(key) if !key.trim().is_empty() => key,
@@ -214,10 +221,24 @@ fn command_exists(cmd: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn ensure_codex_app(platform: Platform, yes: bool) -> Result<()> {
+fn ensure_codex_app_before_cli(platform: Platform, yes: bool) -> Result<()> {
     match platform {
         Platform::Windows => ensure_codex_app_windows(yes),
-        Platform::Macos => ensure_codex_app_macos(yes),
+        Platform::Macos | Platform::Other => Ok(()),
+    }
+}
+
+fn ensure_codex_app_after_cli(platform: Platform) -> Result<()> {
+    match platform {
+        Platform::Windows => {
+            if codex_app_installed_windows() {
+                return Ok(());
+            }
+            println!("尝试用 Codex CLI 继续安装/打开 Windows 桌面 App...");
+            run_best_effort("codex", &["app", "--download-url", CODEX_APP_WINDOWS]);
+            Ok(())
+        }
+        Platform::Macos => ensure_codex_app_macos(),
         Platform::Other => Ok(()),
     }
 }
@@ -259,25 +280,8 @@ fn ensure_codex_app_windows(yes: bool) -> Result<()> {
 }
 
 fn codex_app_installed_windows() -> bool {
-    let winget_ok = Command::new("winget")
-        .args([
-            "list",
-            "Codex",
-            "-s",
-            "msstore",
-            "--accept-source-agreements",
-        ])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false);
-    if winget_ok {
-        return true;
-    }
-
-    let script = "if (Get-AppxPackage | Where-Object { $_.Name -like '*Codex*' -or $_.PackageFullName -like '*Codex*' }) { exit 0 } else { exit 1 }";
-    Command::new("powershell")
+    let script = "if ((Get-AppxPackage -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*Codex*' -or $_.PackageFullName -like '*Codex*' }) -or (Get-StartApps -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*Codex*' })) { exit 0 } else { exit 1 }";
+    let appx_ok = Command::new("powershell")
         .args([
             "-NoProfile",
             "-ExecutionPolicy",
@@ -289,13 +293,42 @@ fn codex_app_installed_windows() -> bool {
         .stderr(Stdio::null())
         .status()
         .map(|status| status.success())
-        .unwrap_or(false)
+        .unwrap_or(false);
+    if appx_ok {
+        return true;
+    }
+
+    if !command_exists("winget") {
+        return false;
+    }
+
+    let output = Command::new("winget")
+        .args([
+            "list",
+            "Codex",
+            "-s",
+            "msstore",
+            "--accept-source-agreements",
+        ])
+        .output();
+    let Ok(output) = output else {
+        return false;
+    };
+    let text = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    )
+    .to_lowercase();
+    output.status.success()
+        && text.contains("codex")
+        && !text.contains("no installed package")
+        && !text.contains("no package found")
 }
 
-fn ensure_codex_app_macos(yes: bool) -> Result<()> {
+fn ensure_codex_app_macos() -> Result<()> {
     println!("检查 Codex macOS 桌面 App...");
     if command_exists("codex") {
-        let _ = yes;
         run_best_effort("codex", &["app"]);
     } else {
         println!("Codex CLI 安装后可运行 `codex app` 安装/打开桌面 App。");
@@ -315,7 +348,7 @@ fn ensure_codex_cli(platform: Platform, yes: bool) -> Result<()> {
     match platform {
         Platform::Windows => {
             let script = format!(
-                "$ErrorActionPreference='Stop'; $env:CODEX_NON_INTERACTIVE='1'; irm {CODEX_WINDOWS_INSTALL} | iex"
+                "$ErrorActionPreference='Stop'; $env:CODEX_NON_INTERACTIVE='1'; try {{ irm {CODEX_WINDOWS_INSTALL_MIRROR} -ErrorAction Stop | iex }} catch {{ Write-Host '镜像下载失败，改用官方安装脚本...'; irm {CODEX_WINDOWS_INSTALL_OFFICIAL} | iex }}"
             );
             run_command(
                 "powershell",
@@ -330,7 +363,9 @@ fn ensure_codex_cli(platform: Platform, yes: bool) -> Result<()> {
             .context("Codex CLI 安装失败。请尝试用管理员 PowerShell 运行 README 里的手动命令。")?;
         }
         Platform::Macos | Platform::Other => {
-            let script = format!("curl -fsSL {CODEX_UNIX_INSTALL} | CODEX_NON_INTERACTIVE=1 sh");
+            let script = format!(
+                "(curl -fsSL {CODEX_UNIX_INSTALL_MIRROR} || curl -fsSL {CODEX_UNIX_INSTALL_OFFICIAL}) | CODEX_NON_INTERACTIVE=1 sh"
+            );
             run_command("sh", &["-c", &script])
                 .context("Codex CLI 安装失败。请检查网络或手动运行官方安装命令。")?;
         }
@@ -354,27 +389,33 @@ fn ensure_cc_switch(platform: Platform, yes: bool) -> Result<()> {
 }
 
 fn install_cc_switch_windows() -> Result<()> {
-    let release = latest_release(CC_SWITCH_REPO)?;
-    let asset = release
-        .assets
-        .iter()
-        .find(|asset| asset.name == "cc-switch-cli-windows-x64.zip")
-        .or_else(|| {
-            release
-                .assets
-                .iter()
-                .find(|asset| asset.name.ends_with("windows-x64.zip"))
-        })
-        .ok_or_else(|| anyhow!("没有找到 cc-switch Windows x64 release 资产"))?;
-
-    println!("下载 cc-switch {}: {}", release.tag_name, asset.name);
+    println!("下载 cc-switch Windows x64。");
     let root = local_appdata()?.join("cc-switch");
     let bin = root.join("bin");
     fs::create_dir_all(&bin).with_context(|| format!("创建目录失败: {}", bin.display()))?;
 
     let tmp = tempfile::tempdir()?;
-    let zip_path = tmp.path().join(&asset.name);
-    download_to(&asset.browser_download_url, &zip_path)?;
+    let zip_path = tmp.path().join("cc-switch-cli-windows-x64.zip");
+    if let Err(error) = download_to(CC_SWITCH_WINDOWS_MIRROR, &zip_path) {
+        println!("cc-switch 镜像下载失败：{error}");
+        let release = latest_release(CC_SWITCH_REPO)?;
+        let asset = release
+            .assets
+            .iter()
+            .find(|asset| asset.name == "cc-switch-cli-windows-x64.zip")
+            .or_else(|| {
+                release
+                    .assets
+                    .iter()
+                    .find(|asset| asset.name.ends_with("windows-x64.zip"))
+            })
+            .ok_or_else(|| anyhow!("没有找到 cc-switch Windows x64 release 资产"))?;
+        println!(
+            "改用 GitHub release 下载 {}: {}",
+            release.tag_name, asset.name
+        );
+        download_to(&asset.browser_download_url, &zip_path)?;
+    }
     unzip_single_binary(&zip_path, "cc-switch.exe", &bin.join("cc-switch.exe"))?;
     add_to_user_path(&bin)?;
     println!("cc-switch 已安装到 {}", bin.display());
@@ -382,8 +423,11 @@ fn install_cc_switch_windows() -> Result<()> {
 }
 
 fn install_cc_switch_unix() -> Result<()> {
-    let script = "curl -fsSL https://github.com/SaladDay/cc-switch-cli/releases/latest/download/install.sh | bash";
-    run_command("sh", &["-c", script]).context("cc-switch 安装失败。请检查网络或手动下载 release。")
+    let script = format!(
+        "(curl -fsSL {CC_SWITCH_UNIX_INSTALL_MIRROR} || curl -fsSL {CC_SWITCH_UNIX_INSTALL_OFFICIAL}) | bash"
+    );
+    run_command("sh", &["-c", &script])
+        .context("cc-switch 安装失败。请检查网络或手动下载 release。")
 }
 
 fn latest_release(repo: &str) -> Result<GithubRelease> {
